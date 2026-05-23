@@ -1,0 +1,35 @@
+# === Raw Data Files ===
+data/raw/*.csv
+data/raw/*.xlsx
+
+# === Environment Variables ===
+.env
+.env.*
+
+# === Python Cache ===
+__pycache__/
+*.py[cod]
+*$py.class
+
+# === Jupyter Notebook Checkpoints ===
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# === Virtual Environments ===
+venv/
+env/
+.venv/
+
+# === OS & Editor Files ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# === Distribution / Build ===
+dist/
+build/
+*.egg-info/
+
+# === Logs ===
+*.log
