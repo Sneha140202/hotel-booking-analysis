@@ -2,6 +2,10 @@
 data/raw/*.csv
 data/raw/*.xlsx
 
+# === Cleaned Data Files (large — tracked via DVC or shared externally) ===
+data/cleaned/*.csv
+data/cleaned/*.xlsx
+
 # === Environment Variables ===
 .env
 .env.*
