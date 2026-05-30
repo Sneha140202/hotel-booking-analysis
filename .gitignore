@@ -37,3 +37,11 @@ build/
 
 # === Logs ===
 *.log
+
+# === Model & Data Pickles (large files — not for version control) ===
+data/cleaned/*.pkl
+data/cleaned/X_features.csv
+data/cleaned/y_target.csv
+data/cleaned/X_train*.csv
+data/cleaned/y_train*.csv
+push-to-github.sh
