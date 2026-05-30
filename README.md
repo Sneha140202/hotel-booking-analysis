@@ -6,163 +6,153 @@
 |------|-------|--------|
 | **Week 1** | Data acquisition, cleaning & feature engineering | ✅ Complete |
 | **Week 2** | Exploratory Data Analysis (EDA) & Segmentation | ✅ Complete |
-| Week 3 | Cancellation prediction modelling | 🔄 Up next |
-| Week 4 | Pricing optimisation & reporting | ⏳ Planned |
+| **Week 3** | ML Modelling — Cancellation Prediction | ✅ Complete |
+| Week 4 | Dashboard & Reporting | 🔄 Up next |
 
 ---
 
-## Business Problem Statement
+## Business Problem
 
 ### 1. Cancellation Prediction
-Hotel cancellations result in significant revenue loss and operational inefficiencies. This project identifies the key drivers behind booking cancellations and builds a predictive model to flag high-risk bookings early — enabling hotels to implement targeted retention strategies, adjust overbooking policies, and reduce last-minute revenue leakage.
+Over **27.85% of bookings cancel**, representing ~£3.7M in unprotected revenue per reporting cycle. This project predicts which bookings are at risk so hotels can trigger re-confirmation campaigns, set overbooking buffers, and reduce last-minute revenue loss.
 
 ### 2. Pricing Optimisation
-Dynamic pricing is critical in the hospitality industry. This project analyses booking patterns, seasonal trends, lead times, and guest segments to uncover pricing opportunities — helping hotels maximise Average Daily Rate (ADR) and Revenue Per Available Room (RevPAR) while staying competitive.
+Using ADR, lead time, and seasonal patterns, the analysis surfaces pricing gaps — including an identified £370K opportunity in May from under-priced peak-demand periods.
 
 ---
 
 ## Dataset
 
-| Attribute | Detail |
-|-----------|--------|
-| **Name** | Hotel Booking Demand |
-| **Source** | Antonio, Almeida & Nunes (2019) — [ScienceDirect](https://doi.org/10.1016/j.dib.2018.11.126) / TidyTuesday |
+| Attribute | Value |
+|-----------|-------|
+| **Source** | Antonio, Almeida & Nunes (2019) — [ScienceDirect](https://doi.org/10.1016/j.dib.2018.11.126) |
 | **Raw rows** | 119,390 |
-| **Raw columns** | 32 |
 | **Cleaned rows** | 85,598 |
-| **Final columns** | 36 (32 original + 4 engineered) |
-| **Date range** | July 2015 – August 2017 |
-| **Hotels** | Resort Hotel & City Hotel (Portugal) |
-| **Target variable** | `is_canceled` (0 = stayed, 1 = cancelled) |
-| **Key metric** | `adr` — Average Daily Rate (£) |
+| **Features (final)** | 34 (after encoding & engineering) |
+| **Target** | `is_canceled` — 0 = stayed, 1 = cancelled |
+| **Hotels** | City Hotel & Resort Hotel, Portugal (Jul 2015 – Aug 2017) |
 
 ---
 
-## Week 1 — Data Cleaning Summary
+## Week 3 — Model Performance
 
-All cleaning was performed in `notebooks/02_data_cleaning.ipynb`.
+All models trained on **SMOTE-balanced** data (98,814 samples, 50:50) and evaluated on the **original test set** (17,120 samples, real 72:28 distribution).
 
-| Step | Action | Rows Affected |
-|------|--------|--------------|
-| Imputation | `children`, `agent`, `company`, `country` NaN filled | ~129K values |
-| ADR removal | `adr ≤ 0` rows dropped | −1,960 |
-| Deduplication | Exact duplicate rows removed | −31,832 |
+### Results Table
+
+| Model | Accuracy | Precision | Recall | F1-Score | **ROC-AUC** | False Negatives |
+|-------|----------|-----------|--------|----------|------------|-----------------|
+| [Logistic Regression](notebooks/08_logistic_regression.ipynb) | 73.85% | 52.51% | 63.76% | 57.59% | 0.7852 | 1,728 |
+| [Decision Tree (depth=6)](notebooks/09_decision_tree.ipynb) | 71.51% | 49.18% | 68.23% | 57.16% | 0.7862 | 1,515 |
+| **[Random Forest (tuned)](notebooks/10_random_forest.ipynb)** | **79.07%** | **62.65%** | 61.49% | **62.07%** | **0.8333 ✅** | 1,836 |
+
+### Selected Model: Random Forest (tuned)
+
+- **Highest ROC-AUC (0.8333)** — best ranking ability across all operating thresholds
+- **Best accuracy (79.07%)** and **F1-Score (62.07%)**
+- **Fewest false positives (1,748)** — saves ~£16K/cycle vs Decision Tree on wasted retention actions
+- **Tunable threshold** — lowering from 0.50 → 0.40 recovers high recall for peak season
+
+**Best hyperparameters** (RandomizedSearchCV, cv=5): `n_estimators=50`, `max_depth=20`, `min_samples_split=5`, `max_features='sqrt'`
+
+### Top 5 Cancellation Predictors
+
+| Rank | Feature | Importance | Meaning |
+|------|---------|-----------|---------|
+| 1 | `lead_time` | 20.87% | Long advance bookings cancel more |
+| 2 | `revenue_per_booking` | 12.67% | High-value bookings carry more risk |
+| 3 | `adr` | 12.66% | Pricing tier signal |
+| 4 | `total_of_special_requests` | 8.81% | Requests = commitment signal |
+| 5 | `arrival_date_month` | 6.58% | Seasonal cancellation patterns |
+
+### Why Recall > Accuracy
+
+A dummy model predicting "not cancelled" always achieves **72% accuracy** — useless.
+
+| Error | Cost |
+|-------|------|
+| **False Negative** (missed cancel) | ~£403 avg revenue lost permanently |
+| **False Positive** (wrong flag) | ~£5–15 intervention cost |
+
+Cost ratio **27:1** — catching cancellations is overwhelmingly more valuable than avoiding false alarms. **ROC-AUC** is the primary metric because it evaluates ranking ability across all thresholds, not just the default 0.5 cut-off.
+
+---
+
+## Week 2 — Key EDA Findings
+
+1. **Non-Refundable deposits → 94.7% cancellation rate** — OTA system artefact, not causal; treat with caution in modelling
+2. **Lead time amplifies risk monotonically** — 16.7% (0–30 days) → 40.0% (180+ days)
+3. **Early Planners generate 88% more revenue but cancel 37% of the time** — vs 17% for last-minute bookers; tiered deposit policy recommended
+
+---
+
+## Week 1 — Cleaning Summary
+
+| Step | Action | Impact |
+|------|--------|--------|
+| Imputation | `children`, `agent`, `company`, `country` NaN → filled | ~129K values |
+| ADR removal | `adr ≤ 0` dropped | −1,960 rows |
+| Deduplication | Exact duplicates removed | −31,832 rows |
 | Outlier capping | ADR capped at Q3 + 1.5×IQR = £225.75 | 2,538 capped |
-| Feature engineering | `arrival_date`, `total_nights`, `total_guests`, `revenue_per_booking` | +4 columns |
-
-**Final cleaned file:** `data/cleaned/hotel_cleaned.csv` — 85,598 rows × 36 columns, 0 nulls.
+| Engineering | `arrival_date`, `total_nights`, `total_guests`, `revenue_per_booking` | +4 columns |
 
 ---
 
-## Week 2 — EDA Summary & Key Findings
+## Notebooks
 
-Exploratory analysis across notebooks `03` through `06`.
-
-### 🔍 Key Finding 1 — Non-Refundable Bookings Have a 94.7% Cancellation Rate
-
-The single most counterintuitive result in the dataset: bookings marked as "Non Refund" deposit type cancel at **94.7%** — nearly 3.5× higher than the 27.0% rate for "No Deposit" bookings. The most likely explanation is an OTA (Booking.com) system classification artefact where certain modified or repriced bookings are flagged as cancellations internally while revenue is already settled. This finding means `deposit_type` must be treated with caution in modelling — it may represent data leakage rather than a genuine causal signal. See `notebooks/03_eda_cancellations.ipynb`, Part 3.
-
-### 🔍 Key Finding 2 — Lead Time Is a Monotonic Cancellation Risk Amplifier
-
-Cancellation rate rises steadily from **16.7%** (0–30 day bookings) to **40.0%** (180+ day bookings) — a 2.4× increase. Cancelled guests book an average of **35 days earlier** than non-cancelled guests (106 vs 71 days mean lead time). Combined with the ADR elasticity analysis (bookings made 91–150 days ahead pay the most at £113–115/night, while last-minute pays the least at £96), this creates a compounding risk: the highest-revenue advance bookings are also the most likely to cancel. See `notebooks/04_eda_pricing_seasonality.ipynb`.
-
-### 🔍 Key Finding 3 — Early Planners Generate 88% More Revenue But Cancel at 37%
-
-Customer segmentation reveals a critical trade-off: Early Planners (lead time > 90 days) generate £519 average revenue per booking vs £276 for Last-Minute bookers — but cancel at **37%** vs **17%**. Similarly, Leisure guests generate 165% more revenue than Corporate guests but cancel at 29% vs 13%. The optimal revenue strategy is a tiered deposit and pricing structure that captures Early Planner commitment while preserving Last-Minute premium pricing. See `notebooks/06_customer_segmentation.ipynb`.
-
----
-
-### EDA Notebooks
-
-| Notebook | Topic | Key Output |
-|----------|-------|-----------|
-| `03_eda_cancellations.ipynb` | Cancellation rates, deposit type, customer type, lead time | 7 charts |
-| `04_eda_pricing_seasonality.ipynb` | Monthly ADR, seasonal patterns, booking curve, pricing elasticity | 6 charts |
-| `05_correlation_analysis.ipynb` | Feature correlations, multicollinearity | 3 charts |
-| `06_customer_segmentation.ipynb` | Corporate/Leisure + Early/Last-Minute KPI comparison | 2 charts |
-
-### Visuals Gallery
-
-All charts exported to `/visuals/` with `plt.savefig()`:
-
-| File | Description |
-|------|-------------|
-| `cancellation_overall_pie.png` | Overall 27.85% cancellation rate donut |
-| `cancellation_by_hotel_type.png` | City Hotel (30.5%) vs Resort Hotel (23.8%) |
-| `cancellation_by_deposit_type.png` | Non Refund 94.7% counterintuitive finding |
-| `cancellation_by_customer_type.png` | Transient 30.5% vs Group 7.2% |
-| `lead_time_distribution.png` | Lead time histogram: cancelled vs not cancelled |
-| `lead_time_bucket_cancellation.png` | Cancellation rate per 0–30 / 31–90 / 91–180 / 180+ buckets |
-| `monthly_adr_vs_volume.png` | Dual-axis ADR + booking volume by month |
-| `adr_heatmap_hotel_month.png` | ADR by hotel type × month heatmap |
-| `monthly_cancellation_rate.png` | Seasonal cancellation rate bar chart |
-| `booking_curve_by_hotel.png` | Lead time booking curve: City vs Resort |
-| `adr_vs_lead_time.png` | ADR elasticity across lead time buckets |
-| `correlation_heatmap_full.png` | Full 20×20 Pearson correlation matrix |
-| `segment_kpi_comparison.png` | Corporate/Leisure + Early/Last-Minute KPI bars |
+| Notebook | Purpose | Key Output |
+|----------|---------|-----------|
+| [01_data_loading](notebooks/01_data_loading.ipynb) | Load & inspect raw data | Shape, dtypes, column definitions |
+| [02_data_cleaning](notebooks/02_data_cleaning.ipynb) | Full cleaning pipeline | `hotel_cleaned.csv` — 85,598 × 36 |
+| [02_missing_values](notebooks/02_missing_values.ipynb) | Missing value analysis | Imputation strategy |
+| [03_eda_cancellations](notebooks/03_eda_cancellations.ipynb) | Cancellation EDA | Rate by hotel, deposit, customer type, lead time |
+| [04_eda_pricing_seasonality](notebooks/04_eda_pricing_seasonality.ipynb) | Pricing & seasonality | Monthly ADR, booking curve, elasticity |
+| [05_correlation_analysis](notebooks/05_correlation_analysis.ipynb) | Feature correlations | Multicollinearity flags, feature rankings |
+| [06_customer_segmentation](notebooks/06_customer_segmentation.ipynb) | Segment KPIs | Corporate/Leisure + Early/Last-Minute |
+| [07_feature_engineering](notebooks/07_feature_engineering.ipynb) | Encoding & SMOTE | `X_features.pkl`, train/test split |
+| [08_logistic_regression](notebooks/08_logistic_regression.ipynb) | LR baseline | AUC=0.7852, Recall=63.76% |
+| [09_decision_tree](notebooks/09_decision_tree.ipynb) | Decision Tree | AUC=0.7862, Recall=68.23% |
+| [10_random_forest](notebooks/10_random_forest.ipynb) | **Random Forest ✅** | **AUC=0.8333**, F1=62.07% |
+| [11_model_comparison](notebooks/11_model_comparison.ipynb) | Final comparison | Model selection + business justification |
 
 ---
 
 ## Tech Stack
 
-| Category | Tools / Libraries |
-|----------|------------------|
+| Category | Tools |
+|----------|-------|
 | Language | Python 3.x |
 | Data Manipulation | Pandas, NumPy |
 | Visualisation | Matplotlib, Seaborn |
-| Machine Learning | Scikit-Learn |
-| BI & Dashboarding | Tableau / Power BI |
-| Notebook Environment | Jupyter Notebook |
+| Machine Learning | Scikit-Learn, imbalanced-learn (SMOTE) |
+| BI / Dashboarding | Tableau / Power BI (Week 4) |
+| Notebooks | Jupyter (outputs stripped via nbstripout) |
 | Version Control | Git, GitHub |
-
----
-
-## Project Structure
-
-```
-hotel-booking-analysis/
-│
-├── data/
-│   ├── raw/              # Original dataset (gitignored)
-│   └── cleaned/          # hotel_cleaned.csv — 85,598 × 36, 0 nulls (gitignored)
-│
-├── notebooks/
-│   ├── 01_data_loading.ipynb            ✅ Data loading & inspection
-│   ├── 02_data_cleaning.ipynb           ✅ Full cleaning pipeline (Parts 1–4)
-│   ├── 03_eda_cancellations.ipynb       ✅ Cancellation EDA (Parts 1–3)
-│   ├── 04_eda_pricing_seasonality.ipynb ✅ Pricing & seasonality (Parts 1–2)
-│   ├── 05_correlation_analysis.ipynb    ✅ Feature correlations & selection
-│   └── 06_customer_segmentation.ipynb  ✅ Segment KPI comparison
-│
-├── reports/              # Final analysis reports
-├── visuals/              # 13+ exported charts (plt.savefig)
-│
-├── .gitignore
-└── README.md
-```
 
 ---
 
 ## How to Run
 
 ```bash
-# 1. Clone the repository
+# 1. Clone
 git clone https://github.com/Sneha140202/hotel-booking-analysis.git
 cd hotel-booking-analysis
 
-# 2. Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate        # On Windows: venv\Scripts\activate
+# 2. Virtual environment
+python -m venv venv && source venv/bin/activate
 
 # 3. Install dependencies
-pip install pandas numpy matplotlib seaborn scikit-learn jupyter
+pip install pandas numpy matplotlib seaborn scikit-learn imbalanced-learn jupyter nbstripout
 
-# 4. Download the dataset and place in /data/raw/hotel_bookings.csv
-#    Source: https://www.kaggle.com/datasets/jessemostipak/hotel-booking-demand
+# 4. Place raw data at data/raw/hotel_bookings.csv
+#    Download: https://www.kaggle.com/datasets/jessemostipak/hotel-booking-demand
 
-# 5. Run notebooks in order (01 → 06)
+# 5. Run in order (01 → 11)
 jupyter notebook
 ```
+
+> **Note:** Model pickles and large CSVs are gitignored. Run `07_feature_engineering.ipynb`
+> first to regenerate `X_features.pkl` and all train/test split files before running 08–11.
 
 ---
 
