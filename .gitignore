@@ -37,3 +37,7 @@ build/
 
 # === Logs ===
 *.log
+
+# === Model Pickles & Helper Scripts ===
+data/cleaned/*.pkl
+push-to-github.sh
