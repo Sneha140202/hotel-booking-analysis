@@ -168,5 +168,5 @@ jupyter notebook
 
 ## Author
 
-**Sneha** — [GitHub: Sneha140202](https://github.com/Sneha140202)
+**Sneha** — [GitHub: Sneha140202](https://github.com/Sneha140202) | Week 3 completed: 2026-05-31(https://github.com/Sneha140202)
 
